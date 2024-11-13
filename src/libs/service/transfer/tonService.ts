@@ -13,6 +13,7 @@ export interface AmountValue {
 export interface TransactionState extends AmountValue {
   address: string;
   data: string | Cell | undefined;
+  isArbitraryData?: boolean;
   hex?: string;
   isEncrypt?: boolean;
 }

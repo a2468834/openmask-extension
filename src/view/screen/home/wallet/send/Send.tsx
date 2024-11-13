@@ -1,6 +1,7 @@
-import { FC, useCallback, useContext, useMemo } from "react";
+import React, { FC, useCallback, useContext, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
+import { WalletState } from "../../../../../libs/entries/wallet";
 import { TransactionState } from "../../../../../libs/service/transfer/tonService";
 import {
   Body,
@@ -13,6 +14,7 @@ import { InputField } from "../../../../components/InputField";
 import { SendCancelButton } from "../../../../components/send/SendButtons";
 import { SendLoadingView } from "../../../../components/send/SendLoadingView";
 import { SendSuccessView } from "../../../../components/send/SendSuccessView";
+import { Tabs } from "../../../../components/Tabs";
 import { WalletAddressContext, WalletStateContext } from "../../../../context";
 import { sendBackground } from "../../../../event";
 import { formatTonValue } from "../../../../utils";
@@ -47,12 +49,72 @@ interface InputProps {
   onSend: () => void;
 }
 
+interface TabConfig {
+  tabOption: string;
+  wallet: WalletState;
+  state: TransactionState;
+  onChange: (field: Partial<TransactionState>) => void;
+};
+
+const tabOptions = ["Comment", "Hexadecimal Data"];
+
+const TabRender: FC<TabConfig> = React.memo(
+  ({tabOption, wallet, state, onChange}) => {
+    if (!tabOptions.includes(tabOption)) {
+      return <></>; // Unknown kind of "tabOption"
+    }
+
+    if (tabOption === tabOptions[0]) {
+      if (!wallet.ledger) {
+        return <>
+          <InputField label="" value={state.data as string} onChange={(e) => onChange({ isArbitraryData: false, data: e.target.value })}/>
+          <label>
+            <input type="checkbox" checked={state.isEncrypt} onChange={(e) => onChange({ isEncrypt: e.target.checked })}/>
+            Encrypt
+          </label>
+        </>;
+      } else {
+        // Ledger wallet does not support encrypted message
+        return <>
+          <InputField label="" value={state.data as string} onChange={(e) => onChange({ isArbitraryData: false, data: e.target.value })}/>
+        </>;
+      }
+    } else {
+      if (!wallet.ledger) {
+        return <>
+          <InputField label="" value={state.data as string} onChange={(e) => onChange({ isArbitraryData: true, data: e.target.value })}/>
+        </>;
+      } else {
+        return <></>;
+      }
+    }
+  }
+);
+
 const InputView: FC<InputProps> = ({ state, balance, onChange, onSend }) => {
   const wallet = useContext(WalletStateContext);
 
   const formatted = useMemo(() => {
     return balance ? formatTonValue(balance) : "-";
   }, [balance]);
+
+  const [enableTabs, setEnableTabs] = useState<boolean>(!!state.data);
+  const [activeTab, setActiveTab] = useState<string>((!state.isArbitraryData) ? tabOptions[0] : tabOptions[1]);
+
+  const changeTabs = (newTabName: string) => {
+    setEnableTabs(true);
+    setActiveTab(newTabName);
+    state.isArbitraryData = (newTabName == tabOptions[0]) ? false : true;
+    state.isEncrypt = false;
+    state.data = "";
+  };
+
+  const clearToDefault = () => {
+    setActiveTab(tabOptions[0]);
+    state.isArbitraryData = false;
+    state.isEncrypt = undefined;
+    state.data = undefined;
+  };
 
   return (
     <Body>
@@ -84,25 +146,20 @@ const InputView: FC<InputProps> = ({ state, balance, onChange, onSend }) => {
         {formatted} TON
       </MaxRow>
 
-      <InputField
-        label="Comment (optional)"
-        value={state.data as string}
-        onChange={(e) => onChange({ data: e.target.value })}
-      />
-
-      {!wallet.ledger && (
-        <label>
-          <input
-            type="checkbox"
-            checked={state.isEncrypt}
-            onChange={(e) =>
-              onChange({
-                isEncrypt: e.target.checked,
-              })
-            }
-          />
-          Encrypt
-        </label>
+      <label>
+        <input type="checkbox" checked={enableTabs} onChange={(e) => {
+          setEnableTabs(e.target.checked);
+          if (e.target.checked) {
+            clearToDefault();
+          }}}
+        />
+        Optional information
+      </label>
+      { enableTabs && (
+        <>
+          <Tabs options={tabOptions} active={activeTab} onChange={(c) => changeTabs(c)} />
+          <TabRender tabOption={activeTab} wallet={wallet} state={state} onChange={onChange} />
+        </>
       )}
 
       <Gap />

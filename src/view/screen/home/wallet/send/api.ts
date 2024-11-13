@@ -1,6 +1,6 @@
 import { Address, toNano, TonDns, TonHttpProvider } from "@openproduct/web-sdk";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Address as CoreAddress } from "@ton/core";
+import { Cell, Address as CoreAddress } from "@ton/core";
 import { TonClient } from "@ton/ton";
 import { useContext } from "react";
 import { NetworkConfig } from "../../../../../libs/entries/network";
@@ -34,6 +34,15 @@ export const toState = (searchParams: URLSearchParams): TransactionState => {
     max: searchParams.get("max") ?? "",
     data: decodeURIComponent(searchParams.get("data") ?? ""),
     isEncrypt: searchParams.get("isEncrypt") === "1",
+    isArbitraryData: (() => {
+      if (searchParams.get("isArbitraryData") === "true") {
+        return true;
+      } else if (searchParams.get("isArbitraryData") === "1") {
+        return true;
+      } else {
+        return false;
+      }
+    })(),
   };
 };
 
@@ -181,11 +190,32 @@ const sendMnemonicTransaction = async (
 
   const seqno = await tonContract.getSeqno();
 
+  const _data: string | Cell | undefined = (() => {
+    if (state.isArbitraryData) {
+      if (state.data === undefined) {
+        return undefined;
+      }
+
+      if (state.data instanceof Cell) {
+        return state.data;
+      }
+
+      // View "state.data" as the BoC string of the Cell
+      try {
+        return Cell.fromBoc(Buffer.from(state.data, "hex"))[0];
+      } catch {
+        throw new Error("Invalid encoding of the hexadecimal data");
+      }
+    } else {
+      return state.data;
+    }
+  })();
+
   const payload = await getPayload(
     tonClient,
     address,
     state.isEncrypt,
-    state.data,
+    _data,
     secretKey
   );
   const transaction = createTonTransfer(

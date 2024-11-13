@@ -9,6 +9,7 @@ const Code = styled.div`
   padding: 10px;
   background: ${(props) => props.theme.lightGray};
   font-size: medium;
+  font-family: monospace;
   margin-bottom: ${(props) => props.theme.padding};
   word-break: break-all;
 `;

@@ -36,6 +36,7 @@ const EditButton = React.memo(() => {
     setSearchParams({
       ...state,
       isEncrypt: state.isEncrypt ? "1" : "",
+      isArbitraryData: state.isArbitraryData ? "true" : "",
     } as URLSearchParamsInit); // Remove submit flag from params
   };
   return <SendEditButton onEdit={onEdit} />;
@@ -81,6 +82,19 @@ export const ConfirmView: FC<ConfirmProps> = ({ state, price, onSend }) => {
   const disabled = isLoading || addressError != null;
 
   const wallet = useContext(WalletStateContext);
+  
+  const prettifyHexadecimal = (raw: string) => {
+    const regex = /[0-9A-Fa-f]{6}/g;
+    if(!regex.test(raw)) {
+      throw new Error("Invalid hexadecimal string in the \"Arbitrary Data\" field");
+    } else {
+      let result = "";
+      for (let i = 0; i < raw.length; i+=4){
+        result = result + " " + raw.slice(i, i+4);
+      }
+      return result;
+    }
+  };
 
   return (
     <>
@@ -94,11 +108,17 @@ export const ConfirmView: FC<ConfirmProps> = ({ state, price, onSend }) => {
 
         <Fees estimation={data} />
 
-        {state.data && (
+        {!state.isArbitraryData && state.data && (
           <CodeBlock
             label={state.isEncrypt ? "E2E Encrypted Message" : "Public Message"}
           >
             {String(state.data)}
+          </CodeBlock>
+        )}
+
+        {state.isArbitraryData && state.data && (
+          <CodeBlock label="Arbitrary Data">
+            {prettifyHexadecimal(String(state.data).replace("0x", ""))}
           </CodeBlock>
         )}
 
